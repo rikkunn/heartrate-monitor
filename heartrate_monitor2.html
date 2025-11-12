@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ストレスチェッカー - 加速度センサーHRV解析</title>
+
+```
+<!-- iPhone用デバッグコンソール -->
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        color: white;
+    }
+
+    .container {
+        max-width: 500px;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 28px;
+    }
+
+    .subtitle {
+        text-align: center;
+        margin-bottom: 30px;
+        opacity: 0.9;
+        font-size: 14px;
+    }
+
+    .status {
+        text-align: center;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+
+    .status.active {
+        background: rgba(76, 175, 80, 0.3);
+    }
+
+    .measurement-timer {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .timer-display {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .timer-value {
+        font-size: 48px;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .timer-label {
+        font-size: 14px;
+        opacity: 0.8;
+        margin-top: 5px;
+    }
+
+    .timer-recommendation {
+        font-size: 16px;
+        margin-bottom: 15px;
+        opacity: 0.9;
+    }
+
+    .timer-recommendation.reached {
+        color: #4CAF50;
+        font-weight: bold;
+    }
+
+    .timer-progress-bar {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .timer-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4CAF50, #81c784);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    .heart-rate-display {
+        text-align: center;
+        margin: 30px 0;
+        padding: 40px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+    }
+
+    .heart-rate-value {
+        font-size: 72px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .heart-rate-label {
+        font-size: 18px;
+        opacity: 0.9;
+    }
+
+    .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    button {
+        flex: 1;
+        padding: 15px;
+        font-size: 16px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: bold;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .start-btn {
+        background: #4CAF50;
+        color: white;
+    }
+
+    .start-btn:hover:not(:disabled) {
+        background: #45a049;
+        transform: translateY(-2px);
+    }
+
+    .stop-btn {
+        background: #f44336;
+        color: white;
+    }
+
+    .stop-btn:hover:not(:disabled) {
+        background: #da190b;
+        transform: translateY(-2px);
+    }
+
+    .export-btn {
+        background: #2196F3;
+        color: white;
+    }
+
+    .export-btn:hover:not(:disabled) {
+        background: #0b7dda;
+        transform: translateY(-2px);
+    }
+
+    .info-panel {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        opacity: 0.8;
+    }
+
+    .info-value {
+        font-weight: bold;
+    }
+
+    canvas {
+        width: 100%;
+        height: 150px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        margin-top: 20px;
+    }
+
+    .analysis-result {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 25px;
+        margin-top: 20px;
+    }
+
+    .analysis-result h3 {
+        margin-bottom: 20px;
+        text-align: center;
+        font-size: 24px;
+    }
+
+    .analysis-result h4 {
+        margin: 20px 0 10px 0;
+        font-size: 16px;
+        opacity: 0.9;
+    }
+
+    .pulse-wave-container,
+    .ppi-container,
+    .hrv-analysis {
+        margin-bottom: 30px;
+    }
+
+    .hrv-analysis {
+        margin-bottom: 30px;
+    }
+
+    .reliability-indicator {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+
+    .reliability-indicator.low {
+        background: rgba(244, 67, 54, 0.2);
+        border: 2px solid rgba(244, 67, 54, 0.5);
+    }
+
+    .reliability-indicator.medium {
+        background: rgba(255, 152, 0, 0.2);
+        border: 2px solid rgba(255, 152, 0, 0.5);
+    }
+
+    .reliability-indicator.good {
+        background: rgba(33, 150, 243, 0.2);
+        border: 2px solid rgba(33, 150, 243, 0.5);
+    }
+
+    .reliability-indicator.excellent {
+        background: rgba(76, 175, 80, 0.2);
+        border: 2px solid rgba(76, 175, 80, 0.5);
+    }
+
+    .reliability-label {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+
+    .reliability-value {
+        font-size: 20px;
+        font-weight: bold;
+        margin: 0 10px;
+    }
+
+    .reliability-desc {
+        font-size: 13px;
+        opacity: 0.8;
+        display: block;
+        margin-top: 5px;
+    }
+
+    #pulseWaveCanvas,
+    #ppiCanvas,
+    #hrvCanvas {
+        width: 100%;
+        height: 200px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+    }
+
+    .hrv-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .metric-card {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+
+    .metric-card.stress-indicator {
+        grid-column: 1 / -1;
+        background: rgba(100, 200, 255, 0.2);
+    }
+
+    .metric-label {
+        font-size: 14px;
+        opacity: 0.8;
+        margin-bottom: 8px;
+    }
+
+    .metric-value {
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .metric-desc {
+        font-size: 12px;
+        opacity: 0.7;
+    }
+
+    .stress-indicator.relaxed {
+        background: rgba(76, 175, 80, 0.3);
+    }
+
+    .stress-indicator.normal {
+        background: rgba(100, 200, 255, 0.3);
+    }
+
+    .stress-indicator.stressed {
+        background: rgba(255, 152, 0, 0.3);
+    }
+
+    .stress-indicator.very-stressed {
+        background: rgba(244, 67, 54, 0.3);
+    }
+
+    .instructions {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .instructions h3 {
+        margin-bottom: 10px;
+    }
+
+    .instructions ol {
+        margin-left: 20px;
+    }
+
+    .instructions li {
+        margin-bottom: 8px;
+    }
+
+    .settings {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .settings h3 {
+        margin-bottom: 15px;
+    }
+
+    .setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .setting-row:last-child {
+        margin-bottom: 0;
+    }
+
+    select, input[type="number"] {
+        padding: 8px;
+        border-radius: 5px;
+        border: none;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+    }
+</style>
+```
+
+</head>
+<body>
+    <div class="container">
+        <h1>💓 ストレスチェッカー</h1>
+        <p class="subtitle">加速度センサーで心拍変動（HRV）を測定し、自律神経バランスとストレス状態を評価</p>
+
+```
+    <div class="status" id="status">
+        センサー未起動
+    </div>
+
+    <div class="measurement-timer" id="measurementTimer" style="display: none;">
+        <div class="timer-display">
+            <span class="timer-value" id="timerValue">0:00</span>
+            <span class="timer-label">計測時間</span>
+        </div>
+        <div class="timer-recommendation" id="timerRecommendation">
+            目標: 5分（標準測定）
+        </div>
+        <div class="timer-progress-bar">
+            <div class="timer-progress-fill" id="timerProgressFill"></div>
+        </div>
+    </div>
+
+    <div class="heart-rate-display">
+        <div class="heart-rate-value" id="heartRate">--</div>
+        <div class="heart-rate-label">BPM (拍/分)</div>
+    </div>
+
+    <div class="info-panel">
+        <div class="info-row">
+            <span class="info-label">計測時間</span>
+            <span class="info-value" id="duration">0秒</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">サンプリングレート</span>
+            <span class="info-value" id="sampleRate">-- Hz</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">データポイント</span>
+            <span class="info-value" id="dataPoints">0</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">信号品質</span>
+            <span class="info-value" id="signalQuality">--</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">平均PPI</span>
+            <span class="info-value" id="meanPPI">-- ms</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">RMSSD (HRV)</span>
+            <span class="info-value" id="rmssd">-- ms</span>
+        </div>
+    </div>
+
+    <div class="settings">
+        <h3>設定</h3>
+        <div class="setting-row">
+            <label>検出方法:</label>
+            <select id="detectionMethod">
+                <option value="peak">ピーク検出</option>
+                <option value="autocorr">自己相関</option>
+                <option value="fft">FFT（周波数解析）</option>
+                <option value="hybrid" selected>ハイブリッド</option>
+            </select>
+        </div>
+        <div class="setting-row">
+            <label>フィルタ強度:</label>
+            <select id="filterStrength">
+                <option value="low">弱</option>
+                <option value="medium" selected>中</option>
+                <option value="high">強</option>
+            </select>
+        </div>
+        <div class="setting-row">
+            <label>更新間隔:</label>
+            <select id="updateInterval">
+                <option value="2000">2秒</option>
+                <option value="3000" selected>3秒</option>
+                <option value="5000">5秒</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="start-btn" id="startBtn" onclick="startMeasurement()">計測開始</button>
+        <button class="stop-btn" id="stopBtn" onclick="stopMeasurement()" disabled>停止</button>
+    </div>
+
+    <button class="export-btn" id="exportBtn" onclick="exportData()" disabled>データをエクスポート</button>
+
+    <canvas id="waveform"></canvas>
+
+    <div class="analysis-result" id="analysisResult" style="display: none;">
+        <h3>📊 計測結果</h3>
+        
+        <div class="pulse-wave-container">
+            <h4>脈波（加速度信号）</h4>
+            <canvas id="pulseWaveCanvas"></canvas>
+        </div>
+
+        <div class="ppi-container">
+            <h4>PPI時系列</h4>
+            <canvas id="ppiCanvas"></canvas>
+        </div>
+
+        <div class="hrv-analysis">
+            <h4>HRV周波数解析（LF/HF）</h4>
+            
+            <div class="reliability-indicator" id="reliabilityIndicator">
+                <span class="reliability-label">測定信頼性:</span>
+                <span class="reliability-value" id="reliabilityValue">--</span>
+                <span class="reliability-desc" id="reliabilityDesc">--</span>
+            </div>
+
+            <canvas id="hrvCanvas"></canvas>
+            
+            <div class="hrv-metrics">
+                <div class="metric-card">
+                    <div class="metric-label">LF (Low Frequency)</div>
+                    <div class="metric-value" id="lfValue">-- ms²</div>
+                    <div class="metric-desc">0.04-0.15 Hz（交感神経＋副交感神経）</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">HF (High Frequency)</div>
+                    <div class="metric-value" id="hfValue">-- ms²</div>
+                    <div class="metric-desc">0.15-0.40 Hz（副交感神経）</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">LF/HF比</div>
+                    <div class="metric-value" id="lfhfRatio">--</div>
+                    <div class="metric-desc">交感神経活動の指標</div>
+                </div>
+                <div class="metric-card stress-indicator" id="stressIndicator">
+                    <div class="metric-label">自律神経状態</div>
+                    <div class="metric-value" id="stressLevel">--</div>
+                    <div class="metric-desc" id="stressDesc">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h3>📱 ストレスチェックの方法</h3>
+        <ol>
+            <li><strong>重要:</strong> HTTPSでアクセスしてください（iOSの場合必須）</li>
+            <li>仰向けに寝て、胸の中央にスマホを置く</li>
+            <li>スマホが心臓の動きで振動するように位置を調整</li>
+            <li>「計測開始」ボタンを押す</li>
+            <li><strong>iOSの場合:</strong> センサー使用許可のダイアログで「許可」をタップ</li>
+            <li>静かに呼吸し、動かないようにする</li>
+            <li><strong>推奨計測時間まで待つ</strong>（下記参照）</li>
+            <li>「計測停止」ボタンを押して<strong>ストレス状態</strong>を確認</li>
+        </ol>
+        
+        <div style="margin-top: 20px; padding: 15px; background: rgba(100, 200, 255, 0.2); border-radius: 8px;">
+            <h4 style="margin-bottom: 10px;">⏱️ ストレス評価の推奨計測時間</h4>
+            <div style="margin-left: 10px; line-height: 1.8;">
+                • <strong>2〜3分</strong>: 簡易チェック（参考値）<br>
+                • <strong>5分</strong>: ⭐ 標準測定（推奨）<br>
+                • <strong>10分以上</strong>: 高精度測定（研究レベル）<br>
+            </div>
+            <div style="margin-top: 10px; font-size: 13px; opacity: 0.9;">
+                ※ 正確なストレス評価（LF/HF比）には、<br>
+                　最低でも5分間の計測が必要です。
+            </div>
+        </div>
+
+        <div style="margin-top: 15px; padding: 15px; background: rgba(150, 255, 150, 0.2); border-radius: 8px;">
+            <h4 style="margin-bottom: 10px;">💡 このアプリでわかること</h4>
+            <div style="margin-left: 10px; line-height: 1.8;">
+                • <strong>心拍数（BPM）</strong>: リアルタイム心拍測定<br>
+                • <strong>PPI</strong>: 心拍間隔の変動を可視化<br>
+                • <strong>HRV解析</strong>: LF/HF比から自律神経バランスを評価<br>
+                • <strong>ストレス状態</strong>: リラックス/正常/ストレスを判定<br>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px; padding: 10px; background: rgba(255, 200, 0, 0.2); border-radius: 5px;">
+            <strong>⚠️ iOS使用時の注意:</strong><br>
+            • Safari または Chrome を使用してください<br>
+            • HTTPS接続が必要です（localhost以外）<br>
+            • センサー許可は必ず「許可」を選んでください<br>
+            • 拒否した場合は、Safariの設定→Webサイトの設定から変更できます
+        </div>
+    </div>
+</div>
+
+<script>
+    // グローバル変数
+    let isRecording = false;
+    let accelerometerData = [];
+    let ppiData = []; // PPI（ピーク間隔）データ
+    let processedSignalData = []; // 前処理済み信号データ
+    let hrvResult = null; // HRV解析結果
+    let startTime = null;
+    let animationFrame = null;
+    let sensorInterval = null;
+    let analysisInterval = null;
+    let lastTimestamp = null;
+    let sampleRates = [];
+    let targetSampleRate = 100; // 目標サンプリングレート 100Hz
+    let sensorData = { x: 0, y: 0, z: 0 }; // 最新のセンサーデータ
+    let lastSampleTime = 0;
+
+    // Canvas設定（グローバル変数）
+    let canvas = null;
+    let ctx = null;
+
+    // 加速度センサーの初期化と計測開始
+    async function startMeasurement() {
+        console.log('========================================');
+        console.log('計測開始ボタンがクリックされました');
+        console.log('タイムスタンプ:', new Date().toISOString());
+        console.log('現在のURL:', window.location.href);
+        console.log('プロトコル:', window.location.protocol);
+        console.log('ホスト名:', window.location.hostname);
+        console.log('========================================');
+        
+        // 即座に視覚的フィードバック
+        document.getElementById('status').textContent = '処理中...';
+        document.getElementById('status').style.background = 'rgba(33, 150, 243, 0.3)';
+        
+        // HTTPSチェック（localhost、127.0.0.1、file://プロトコルは許可）
+        const isLocalOrFile = window.location.protocol === 'file:' || 
+                             window.location.hostname === 'localhost' || 
+                             window.location.hostname === '127.0.0.1' ||
+                             window.location.hostname === '';
+        
+        if (window.location.protocol !== 'https:' && !isLocalOrFile) {
+            alert('⚠️ HTTPS接続が必要です\n\niOSでセンサーを使用するには、HTTPS経由でアクセスする必要があります。\n\n対処法:\n1. GitHub Pages、Netlify、Vercelなどにデプロイ\n2. ローカルHTTPSサーバーを使用\n3. ngrokなどのトンネルサービスを使用');
+            console.error('HTTPS接続ではありません');
+            return;
+        }
+        
+        console.log('プロトコルチェック通過:', window.location.protocol);
+        
+        try {
+            // iOS 13+ の場合は許可が必要
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                console.log('iOS: センサー許可をリクエスト中...');
+                document.getElementById('status').textContent = '許可ダイアログを確認してください...';
+                
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    console.log('許可結果:', permission);
+                    
+                    if (permission !== 'granted') {
+                        const message = 
+                            '❌ センサーの使用が拒否されました\n\n' +
+                            '対処法:\n' +
+                            '1. Safariの設定を開く\n' +
+                            '2. 下にスクロールして「プライバシーとセキュリティ」→「モーションとオリエンテーションのアクセス」を探す\n' +
+                            '3. このウェブサイトを「許可」に変更\n' +
+                            '4. ページを再読み込みして、もう一度お試しください\n\n' +
+                            'または、ブラウザでこのページを開き直してください。';
+                        
+                        alert(message);
+                        console.error('許可が拒否されました');
+                        document.getElementById('status').textContent = 'センサー使用が拒否されました';
+                        return;
+                    }
+                } catch (permError) {
+                    console.error('許可リクエストエラー:', permError);
+                    alert('許可リクエストに失敗しました: ' + permError.message + '\n\nHTTPS接続を確認してください。');
+                    return;
+                }
+            } else {
+                console.log('Android/その他: 許可不要');
+            }
+
+            isRecording = true;
+            accelerometerData = [];
+            ppiData = [];
+            processedSignalData = [];
+            hrvResult = null;
+            startTime = Date.now();
+            lastTimestamp = Date.now();
+            sampleRates = [];
+
+            // 解析結果エリアを非表示
+            document.getElementById('analysisResult').style.display = 'none';
+
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = true;
+            document.getElementById('status').textContent = '計測中... データ待機中';
+            document.getElementById('status').classList.add('active');
+
+            // 計測タイマーを表示
+            document.getElementById('measurementTimer').style.display = 'block';
+
+            console.log('イベントリスナーを登録します');
+            // 加速度センサーのイベントリスナー（高頻度でデータ受信）
+            window.addEventListener('devicemotion', handleMotionEvent, true);
+
+            // 100Hzで定期的にサンプリング（10msごと）
+            sensorInterval = setInterval(sampleAtFixedRate, 10);
+
+            // センサーが動作しているか確認
+            setTimeout(() => {
+                if (accelerometerData.length === 0) {
+                    console.warn('5秒経過してもデータが取得できていません');
+                    document.getElementById('status').textContent = '⚠️ センサーデータなし（スマホを軽く動かしてみてください）';
+                } else {
+                    console.log('データ取得成功:', accelerometerData.length, '件');
+                    document.getElementById('status').textContent = '✓ 計測中（データ取得OK）';
+                }
+            }, 5000);
+
+            // 定期的な心拍解析
+            const updateInterval = parseInt(document.getElementById('updateInterval').value);
+            analysisInterval = setInterval(analyzeHeartRate, updateInterval);
+
+            // UI更新
+            requestAnimationFrame(updateUI);
+
+            console.log('計測開始完了');
+
+        } catch (error) {
+            console.error('センサー起動エラー:', error);
+            alert('センサーの起動に失敗しました:\n' + error.message + '\n\n詳細はコンソールを確認してください。');
+            isRecording = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('status').textContent = 'エラー: ' + error.message;
+        }
+    }
+
+    // 加速度データの処理（センサーイベントは高頻度で発生）
+    function handleMotionEvent(event) {
+        if (!isRecording) return;
+
+        const acc = event.accelerationIncludingGravity;
+        
+        if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
+            // 最新のセンサーデータを保存（高頻度で更新）
+            sensorData.x = acc.x;
+            sensorData.y = acc.y;
+            sensorData.z = acc.z;
+        } else {
+            if (accelerometerData.length < 5) {
+                console.warn('センサーデータがnullです:', acc);
+            }
+        }
+    }
+
+    // 100Hzで定期的にサンプリング
+    function sampleAtFixedRate() {
+        if (!isRecording) return;
+
+        const currentTime = Date.now();
+        
+        // 初回のみログ出力
+        if (accelerometerData.length === 0) {
+            console.log('100Hzサンプリング開始:', sensorData);
+        }
+
+        // サンプリングレート計算
+        if (lastSampleTime > 0) {
+            const actualRate = 1000 / (currentTime - lastSampleTime);
+            sampleRates.push(actualRate);
+            if (sampleRates.length > 50) sampleRates.shift();
+        }
+        lastSampleTime = currentTime;
+
+        // 3軸の合成加速度（ノルム）
+        const magnitude = Math.sqrt(
+            sensorData.x * sensorData.x + 
+            sensorData.y * sensorData.y + 
+            sensorData.z * sensorData.z
+        );
+        
+        accelerometerData.push({
+            timestamp: currentTime,
+            x: sensorData.x,
+            y: sensorData.y,
+            z: sensorData.z,
+            magnitude: magnitude
+        });
+
+        // 100件ごとにログ
+        if (accelerometerData.length % 100 === 0) {
+            const avgRate = sampleRates.length > 0 
+                ? Math.round(sampleRates.reduce((a,b) => a+b, 0) / sampleRates.length)
+                : 0;
+            console.log('データ件数:', accelerometerData.length, '平均サンプリングレート:', avgRate, 'Hz');
+        }
+
+        // メモリ管理：30秒以上古いデータは削除
+        const cutoffTime = currentTime - 30000;
+        accelerometerData = accelerometerData.filter(d => d.timestamp > cutoffTime);
+    }
+
+    // 計測停止
+    function stopMeasurement() {
+        console.log('計測停止');
+        isRecording = false;
+        window.removeEventListener('devicemotion', handleMotionEvent, true);
+        
+        if (sensorInterval) {
+            clearInterval(sensorInterval);
+            sensorInterval = null;
+        }
+        
+        if (analysisInterval) {
+            clearInterval(analysisInterval);
+            analysisInterval = null;
+        }
+
+        console.log('最終データ件数:', accelerometerData.length);
+        console.log('PPI件数:', ppiData.length);
+
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('exportBtn').disabled = false;
+        document.getElementById('status').textContent = '計測停止（データ: ' + accelerometerData.length + '件）';
+        document.getElementById('status').classList.remove('active');
+
+        // 計測タイマーを非表示
+        document.getElementById('measurementTimer').style.display = 'none';
+
+        // 最終解析を実行
+        performFinalAnalysis();
+    }
+
+    // 最終解析（停止後）
+    function performFinalAnalysis() {
+        console.log('=== 最終解析開始 ===');
+
+        // 計測時間を計算
+        const measurementDuration = Math.floor((Date.now() - startTime) / 1000);
+        console.log('計測時間:', measurementDuration, '秒');
+
+        // 信頼性評価
+        const reliability = assessMeasurementReliability(measurementDuration);
+        console.log('信頼性評価:', reliability);
+
+        // 解析結果エリアを表示
+        document.getElementById('analysisResult').style.display = 'block';
+
+        // 1. 脈波（前処理済み信号）を表示
+        if (processedSignalData.length > 0) {
+            drawPulseWave(processedSignalData);
+        }
+
+        // 2. PPI時系列を表示
+        if (ppiData.length > 0) {
+            drawPPITimeSeries(ppiData);
+
+            // 3. HRV周波数解析
+            hrvResult = analyzeHRVFrequency(ppiData);
+            
+            if (hrvResult) {
+                // 信頼性インジケーターを表示
+                const reliabilityIndicator = document.getElementById('reliabilityIndicator');
+                reliabilityIndicator.className = 'reliability-indicator ' + reliability.class;
+                document.getElementById('reliabilityValue').textContent = reliability.level;
+                document.getElementById('reliabilityDesc').textContent = reliability.description;
+
+                // HRVスペクトルを描画
+                drawHRVSpectrum(hrvResult);
+
+                // LF/HF指標を表示
+                document.getElementById('lfValue').textContent = hrvResult.lfPower.toFixed(2) + ' ms²';
+                document.getElementById('hfValue').textContent = hrvResult.hfPower.toFixed(2) + ' ms²';
+                document.getElementById('lfhfRatio').textContent = hrvResult.lfhfRatio.toFixed(2);
+
+                // ストレス状態を判定・表示
+                const stressAssessment = assessStressLevel(hrvResult.lfhfRatio);
+                const stressIndicator = document.getElementById('stressIndicator');
+                
+                // 既存のクラスを削除
+                stressIndicator.classList.remove('relaxed', 'normal', 'stressed', 'very-stressed');
+                // 新しいクラスを追加
+                stressIndicator.classList.add(stressAssessment.class);
+                
+                document.getElementById('stressLevel').textContent = stressAssessment.level;
+                
+                // 信頼性に応じてメッセージを調整
+                let stressDescription = stressAssessment.description;
+                if (reliability.score < 3) {
+                    stressDescription += '\n※ より正確な評価には5分以上の計測を推奨します。';
+                }
+                document.getElementById('stressDesc').textContent = stressDescription;
+
+                console.log('HRV解析完了:', {
+                    LF: hrvResult.lfPower.toFixed(2),
+                    HF: hrvResult.hfPower.toFixed(2),
+                    'LF/HF': hrvResult.lfhfRatio.toFixed(2),
+                    状態: stressAssessment.level,
+                    信頼性: reliability.level
+                });
+            } else {
+                console.log('HRV解析: データ不足');
+                
+                // 信頼性インジケーターにエラー表示
+                const reliabilityIndicator = document.getElementById('reliabilityIndicator');
+                reliabilityIndicator.className = 'reliability-indicator low';
+                document.getElementById('reliabilityValue').textContent = '解析不可';
+                document.getElementById('reliabilityDesc').textContent = 'PPIデータが不足しています（最低30個必要）。より長い時間の計測を試してください。';
+                
+                document.getElementById('lfValue').textContent = 'データ不足';
+                document.getElementById('hfValue').textContent = 'データ不足';
+                document.getElementById('lfhfRatio').textContent = '--';
+                document.getElementById('stressLevel').textContent = '解析不可';
+                document.getElementById('stressDesc').textContent = 'PPIデータが不足しています（最低30個必要）';
+            }
+        } else {
+            console.log('PPIデータなし');
+            
+            // 信頼性インジケーターにエラー表示
+            const reliabilityIndicator = document.getElementById('reliabilityIndicator');
+            reliabilityIndicator.className = 'reliability-indicator low';
+            document.getElementById('reliabilityValue').textContent = 'データなし';
+            document.getElementById('reliabilityDesc').textContent = 'PPIが検出されませんでした。スマホの位置を調整して再度お試しください。';
+            
+            document.getElementById('stressLevel').textContent = 'データなし';
+            document.getElementById('stressDesc').textContent = 'PPIが検出されませんでした';
+        }
+
+        console.log('=== 最終解析完了 ===');
+    }
+
+    // 脈波（前処理済み信号）を描画
+    function drawPulseWave(signal) {
+        const canvas = document.getElementById('pulseWaveCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth * 2;
+        canvas.height = 400;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!signal || signal.length < 2) return;
+
+        // 表示するサンプル数（最大1000点）
+        const maxPoints = 1000;
+        const step = Math.ceil(signal.length / maxPoints);
+        const displaySignal = [];
+        for (let i = 0; i < signal.length; i += step) {
+            displaySignal.push(signal[i]);
+        }
+
+        // 正規化
+        const validSignal = displaySignal.filter(x => isFinite(x));
+        if (validSignal.length === 0) return;
+
+        const maxVal = Math.max(...validSignal);
+        const minVal = Math.min(...validSignal);
+        const range = maxVal - minVal || 1;
+        const normalized = displaySignal.map(x => (x - minVal) / range);
+
+        // 描画
+        ctx.strokeStyle = '#4fc3f7';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        for (let i = 0; i < normalized.length; i++) {
+            const x = (i / normalized.length) * canvas.width;
+            const y = canvas.height - (normalized[i] * canvas.height * 0.8 + canvas.height * 0.1);
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+
+        ctx.stroke();
+
+        // グリッド線
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = (i / 4) * canvas.height;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+    }
+
+    // PPI時系列を描画
+    function drawPPITimeSeries(ppiData) {
+        const canvas = document.getElementById('ppiCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth * 2;
+        canvas.height = 400;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!ppiData || ppiData.length < 2) return;
+
+        // PPI値を取得
+        const intervals = ppiData.map(p => p.interval);
+        const maxPPI = Math.max(...intervals);
+        const minPPI = Math.min(...intervals);
+        const range = maxPPI - minPPI || 1;
+
+        // 描画
+        ctx.strokeStyle = '#81c784';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        for (let i = 0; i < ppiData.length; i++) {
+            const x = (i / (ppiData.length - 1)) * canvas.width;
+            const normalized = (ppiData[i].interval - minPPI) / range;
+            const y = canvas.height - (normalized * canvas.height * 0.8 + canvas.height * 0.1);
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+
+        ctx.stroke();
+
+        // ポイントを描画
+        ctx.fillStyle = '#81c784';
+        for (let i = 0; i < ppiData.length; i++) {
+            const x = (i / (ppiData.length - 1)) * canvas.width;
+            const normalized = (ppiData[i].interval - minPPI) / range;
+            const y = canvas.height - (normalized * canvas.height * 0.8 + canvas.height * 0.1);
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // グリッド線とラベル
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '24px sans-serif';
+        ctx.lineWidth = 1;
+        
+        for (let i = 0; i <= 4; i++) {
+            const y = (i / 4) * canvas.height;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+
+            const value = maxPPI - (i / 4) * range;
+            ctx.fillText(Math.round(value) + 'ms', 10, y - 5);
+        }
+    }
+
+    // HRVスペクトルを描画
+    function drawHRVSpectrum(hrvResult) {
+        const canvas = document.getElementById('hrvCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth * 2;
+        canvas.height = 400;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const { powerSpectrum, frequencies } = hrvResult;
+
+        // 0-0.5 Hzの範囲のみ表示
+        const maxFreq = 0.5;
+        const displayIndices = [];
+        const displayPower = [];
+
+        for (let i = 0; i < frequencies.length; i++) {
+            if (frequencies[i] <= maxFreq) {
+                displayIndices.push(i);
+                displayPower.push(powerSpectrum[i]);
+            }
+        }
+
+        if (displayPower.length === 0) return;
+
+        const maxPower = Math.max(...displayPower);
+
+        // パワースペクトルを描画（棒グラフ）
+        const barWidth = canvas.width / displayPower.length;
+
+        for (let i = 0; i < displayPower.length; i++) {
+            const freq = frequencies[displayIndices[i]];
+            const x = (freq / maxFreq) * canvas.width;
+            const height = (displayPower[i] / maxPower) * canvas.height * 0.9;
+            const y = canvas.height - height;
+
+            // LF帯域（0.04-0.15 Hz）は青色
+            if (freq >= 0.04 && freq <= 0.15) {
+                ctx.fillStyle = 'rgba(33, 150, 243, 0.7)';
+            }
+            // HF帯域（0.15-0.40 Hz）は緑色
+            else if (freq >= 0.15 && freq <= 0.40) {
+                ctx.fillStyle = 'rgba(76, 175, 80, 0.7)';
+            }
+            // その他は灰色
+            else {
+                ctx.fillStyle = 'rgba(150, 150, 150, 0.5)';
+            }
+
+            ctx.fillRect(x, y, barWidth, height);
+        }
+
+        // LF/HF帯域の境界線
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+
+        // LF下限（0.04 Hz）
+        let xLine = (0.04 / maxFreq) * canvas.width;
+        ctx.beginPath();
+        ctx.moveTo(xLine, 0);
+        ctx.lineTo(xLine, canvas.height);
+        ctx.stroke();
+
+        // LF/HF境界（0.15 Hz）
+        xLine = (0.15 / maxFreq) * canvas.width;
+        ctx.beginPath();
+        ctx.moveTo(xLine, 0);
+        ctx.lineTo(xLine, canvas.height);
+        ctx.stroke();
+
+        // HF上限（0.40 Hz）
+        xLine = (0.40 / maxFreq) * canvas.width;
+        ctx.beginPath();
+        ctx.moveTo(xLine, 0);
+        ctx.lineTo(xLine, canvas.height);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        // ラベル
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText('LF', (0.095 / maxFreq) * canvas.width, 40);
+        ctx.fillText('HF', (0.275 / maxFreq) * canvas.width, 40);
+
+        // X軸ラベル
+        ctx.font = '24px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        for (let f = 0; f <= maxFreq; f += 0.1) {
+            const x = (f / maxFreq) * canvas.width;
+            ctx.fillText(f.toFixed(1) + 'Hz', x, canvas.height - 10);
+        }
+    }
+
+    // 前処理：DC除去と帯域フィルタ
+    function preprocessSignal(data) {
+        try {
+            if (data.length < 10) return [];
+
+            // 加速度のノルムを使用
+            let signal = data.map(d => d.magnitude).filter(x => isFinite(x));
+            
+            if (signal.length < 10) return [];
+
+            // DC成分除去（平均を引く）
+            const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+            signal = signal.map(x => x - mean);
+
+            // 簡易的なバンドパスフィルタ（0.7Hz - 4Hz：心拍の周波数帯域）
+            const filterStrength = document.getElementById('filterStrength').value;
+            const windowSize = filterStrength === 'low' ? 3 : filterStrength === 'high' ? 7 : 5;
+            
+            // 移動平均による高周波ノイズ除去
+            let filtered = [];
+            for (let i = 0; i < signal.length; i++) {
+                let sum = 0;
+                let count = 0;
+                const halfWindow = Math.floor(windowSize / 2);
+                for (let j = Math.max(0, i - halfWindow); j <= Math.min(signal.length - 1, i + halfWindow); j++) {
+                    if (isFinite(signal[j])) {
+                        sum += signal[j];
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    filtered.push(sum / count);
+                }
+            }
+
+            return filtered.filter(x => isFinite(x));
+        } catch (error) {
+            console.error('前処理エラー:', error);
+            return [];
+        }
+    }
+
+    // FFTを使った周波数解析
+    function fftHeartRate(signal, sampleRate) {
+        try {
+            if (signal.length < 64) return null;
+
+            // FFT（簡易版 - DFT実装）
+            const N = Math.min(256, Math.pow(2, Math.floor(Math.log2(signal.length))));
+            const fft = new Array(N).fill(0);
+            
+            // 計算負荷を減らすため、一部の周波数のみ計算
+            const minFreq = 0.7;
+            const maxFreq = 4.0;
+            const minBin = Math.floor(minFreq * N / sampleRate);
+            const maxBin = Math.ceil(maxFreq * N / sampleRate);
+
+            for (let k = minBin; k < maxBin && k < N; k++) {
+                let real = 0, imag = 0;
+                for (let n = 0; n < N && n < signal.length; n++) {
+                    const angle = -2 * Math.PI * k * n / N;
+                    real += signal[n] * Math.cos(angle);
+                    imag += signal[n] * Math.sin(angle);
+                }
+                fft[k] = Math.sqrt(real * real + imag * imag);
+            }
+
+            // 最大パワーの周波数を検出
+            let maxPower = 0;
+            let maxFreqBin = 0;
+            for (let i = minBin; i < maxBin && i < fft.length; i++) {
+                if (fft[i] > maxPower) {
+                    maxPower = fft[i];
+                    maxFreqBin = i;
+                }
+            }
+
+            if (maxFreqBin === 0 || maxPower === 0) return null;
+
+            const heartRateHz = maxFreqBin * sampleRate / N;
+            const heartRateBPM = heartRateHz * 60;
+
+            return { bpm: heartRateBPM, confidence: maxPower };
+        } catch (error) {
+            console.error('FFT計算エラー:', error);
+            return null;
+        }
+    }
+
+    // HRV周波数解析（LF/HF計算）
+    function analyzeHRVFrequency(ppiValues) {
+        try {
+            if (!ppiValues || ppiValues.length < 30) {
+                console.log('HRV解析: データ不足（最低30個のPPIが必要）');
+                return null;
+            }
+
+            console.log('HRV周波数解析開始: PPI数=', ppiValues.length);
+
+            // PPIを等間隔にリサンプリング（4Hz = 0.25秒間隔）
+            const resampleRate = 4; // Hz
+            const resampleInterval = 1000 / resampleRate; // ms
+
+            const firstTime = ppiValues[0].timestamp;
+            const lastTime = ppiValues[ppiValues.length - 1].timestamp;
+            const duration = lastTime - firstTime;
+            const numSamples = Math.floor(duration / resampleInterval);
+
+            if (numSamples < 64) {
+                console.log('HRV解析: リサンプル後のデータが不足');
+                return null;
+            }
+
+            // 線形補間でリサンプリング
+            const resampledPPI = [];
+            for (let i = 0; i < numSamples; i++) {
+                const targetTime = firstTime + i * resampleInterval;
+                
+                // targetTimeに最も近い2つのPPIを見つけて線形補間
+                let before = null, after = null;
+                for (let j = 0; j < ppiValues.length - 1; j++) {
+                    if (ppiValues[j].timestamp <= targetTime && ppiValues[j + 1].timestamp >= targetTime) {
+                        before = ppiValues[j];
+                        after = ppiValues[j + 1];
+                        break;
+                    }
+                }
+
+                if (before && after) {
+                    const ratio = (targetTime - before.timestamp) / (after.timestamp - before.timestamp);
+                    const interpolated = before.interval + ratio * (after.interval - before.interval);
+                    resampledPPI.push(interpolated);
+                }
+            }
+
+            console.log('リサンプリング完了: サンプル数=', resampledPPI.length);
+
+            // DC成分除去
+            const mean = resampledPPI.reduce((a, b) => a + b, 0) / resampledPPI.length;
+            const detrendedPPI = resampledPPI.map(x => x - mean);
+
+            // FFTの準備（2のべき乗に調整）
+            const fftSize = Math.pow(2, Math.floor(Math.log2(detrendedPPI.length)));
+            const fftInput = detrendedPPI.slice(0, fftSize);
+
+            console.log('FFTサイズ:', fftSize);
+
+            // FFT実行（パワースペクトル計算）
+            const powerSpectrum = [];
+            for (let k = 0; k < fftSize / 2; k++) {
+                let real = 0, imag = 0;
+                for (let n = 0; n < fftSize; n++) {
+                    const angle = -2 * Math.PI * k * n / fftSize;
+                    real += fftInput[n] * Math.cos(angle);
+                    imag += fftInput[n] * Math.sin(angle);
+                }
+                const power = (real * real + imag * imag) / (fftSize * fftSize);
+                powerSpectrum.push(power);
+            }
+
+            // 周波数軸の作成
+            const frequencies = [];
+            for (let i = 0; i < powerSpectrum.length; i++) {
+                frequencies.push(i * resampleRate / fftSize);
+            }
+
+            // LF帯域（0.04-0.15 Hz）のパワー
+            let lfPower = 0;
+            let lfCount = 0;
+            for (let i = 0; i < frequencies.length; i++) {
+                if (frequencies[i] >= 0.04 && frequencies[i] <= 0.15) {
+                    lfPower += powerSpectrum[i];
+                    lfCount++;
+                }
+            }
+
+            // HF帯域（0.15-0.40 Hz）のパワー
+            let hfPower = 0;
+            let hfCount = 0;
+            for (let i = 0; i < frequencies.length; i++) {
+                if (frequencies[i] >= 0.15 && frequencies[i] <= 0.40) {
+                    hfPower += powerSpectrum[i];
+                    hfCount++;
+                }
+            }
+
+            // LF/HF比
+            const lfhfRatio = hfPower > 0 ? lfPower / hfPower : 0;
+
+            console.log('HRV解析結果:', {
+                lfPower: lfPower.toFixed(2),
+                hfPower: hfPower.toFixed(2),
+                lfhfRatio: lfhfRatio.toFixed(2)
+            });
+
+            return {
+                lfPower: lfPower,
+                hfPower: hfPower,
+                lfhfRatio: lfhfRatio,
+                powerSpectrum: powerSpectrum,
+                frequencies: frequencies,
+                resampledPPI: resampledPPI
+            };
+
+        } catch (error) {
+            console.error('HRV周波数解析エラー:', error);
+            return null;
+        }
+    }
+
+    // 計測時間に基づく信頼性評価
+    function assessMeasurementReliability(durationSeconds) {
+        const minutes = durationSeconds / 60;
+
+        if (minutes < 2) {
+            return {
+                level: '参考値',
+                class: 'low',
+                description: '計測時間が短いため、参考程度の値です。より正確な測定には5分以上推奨。',
+                score: 1
+            };
+        } else if (minutes < 5) {
+            return {
+                level: '簡易評価',
+                class: 'medium',
+                description: '簡易的な評価が可能です。標準測定には5分以上を推奨します。',
+                score: 2
+            };
+        } else if (minutes < 10) {
+            return {
+                level: '標準測定',
+                class: 'good',
+                description: '推奨される計測時間です。信頼性の高い評価が可能です。',
+                score: 3
+            };
+        } else {
+            return {
+                level: '高精度測定',
+                class: 'excellent',
+                description: '十分な計測時間です。研究レベルの高精度な評価が可能です。',
+                score: 4
+            };
+        }
+    }
+
+    // 計測時間の更新と表示
+    function updateMeasurementTimer() {
+        if (!isRecording || !startTime) return;
+
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+
+        // タイマー表示
+        const timerDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        document.getElementById('timerValue').textContent = timerDisplay;
+
+        // 進捗バー更新（5分を100%として）
+        const targetSeconds = 300; // 5分
+        const progress = Math.min((elapsed / targetSeconds) * 100, 100);
+        document.getElementById('timerProgressFill').style.width = progress + '%';
+
+        // 推奨メッセージの更新
+        const recommendation = document.getElementById('timerRecommendation');
+        if (elapsed < 120) {
+            recommendation.textContent = '目標: 5分（標準測定）';
+            recommendation.classList.remove('reached');
+        } else if (elapsed < 300) {
+            recommendation.textContent = `あと${Math.ceil((300 - elapsed) / 60)}分で標準測定達成`;
+            recommendation.classList.remove('reached');
+        } else if (elapsed < 600) {
+            recommendation.textContent = '✓ 標準測定達成！ 10分でさらに高精度に';
+            recommendation.classList.add('reached');
+        } else {
+            recommendation.textContent = '✓ 高精度測定達成！';
+            recommendation.classList.add('reached');
+        }
+    }
+
+    // ストレス状態の判定
+    function assessStressLevel(lfhfRatio) {
+        // LF/HF比に基づくストレス判定
+        // 一般的な基準値:
+        // < 1.0: リラックス
+        // 1.0-2.0: 正常
+        // 2.0-4.0: 軽度ストレス
+        // > 4.0: 高ストレス
+
+        if (lfhfRatio < 1.0) {
+            return {
+                level: 'リラックス',
+                class: 'relaxed',
+                description: '副交感神経が優位です。リラックスした状態です。'
+            };
+        } else if (lfhfRatio < 2.0) {
+            return {
+                level: '正常',
+                class: 'normal',
+                description: '交感神経と副交感神経のバランスが良好です。'
+            };
+        } else if (lfhfRatio < 4.0) {
+            return {
+                level: '軽度ストレス',
+                class: 'stressed',
+                description: '交感神経がやや優位です。軽いストレス状態の可能性があります。'
+            };
+        } else {
+            return {
+                level: '高ストレス',
+                class: 'very-stressed',
+                description: '交感神経が強く優位です。高いストレス状態の可能性があります。'
+            };
+        }
+    }
+
+    // PPI（Peak to Peak Interval）計算
+    function calculatePPI(signal, sampleRate, timestamps) {
+        try {
+            if (signal.length < 50) return null;
+
+            // ピーク検出
+            const peaks = [];
+            const maxVal = Math.max(...signal.filter(x => isFinite(x)));
+            const minVal = Math.min(...signal.filter(x => isFinite(x)));
+            const threshold = minVal + (maxVal - minVal) * 0.6;
+
+            for (let i = 1; i < signal.length - 1; i++) {
+                if (signal[i] > threshold && 
+                    signal[i] > signal[i - 1] && 
+                    signal[i] > signal[i + 1]) {
+                    // 近接ピークを避ける（最低0.3秒間隔）
+                    if (peaks.length === 0 || i - peaks[peaks.length - 1].index > sampleRate * 0.3) {
+                        peaks.push({
+                            index: i,
+                            timestamp: timestamps[i],
+                            value: signal[i]
+                        });
+                    }
+                }
+            }
+
+            if (peaks.length < 2) return null;
+
+            // PPI（ピーク間隔）を計算
+            const ppiValues = [];
+            for (let i = 1; i < peaks.length; i++) {
+                const interval = peaks[i].timestamp - peaks[i - 1].timestamp; // ミリ秒
+                const intervalSec = interval / 1000; // 秒
+                
+                // 生理学的に妥当な範囲（0.4秒〜2.0秒 = 30〜150 BPM）
+                if (intervalSec > 0.4 && intervalSec < 2.0) {
+                    ppiValues.push({
+                        interval: interval, // ミリ秒
+                        timestamp: peaks[i].timestamp,
+                        bpm: 60 / intervalSec // 瞬時心拍数
+                    });
+                }
+            }
+
+            if (ppiValues.length === 0) return null;
+
+            // 統計情報を計算
+            const intervals = ppiValues.map(p => p.interval);
+            const meanPPI = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+            const sdPPI = Math.sqrt(
+                intervals.reduce((sum, val) => sum + Math.pow(val - meanPPI, 2), 0) / intervals.length
+            );
+            
+            // RMSSD（連続するPPI差の二乗平均平方根）- HRVの指標
+            let rmssd = 0;
+            if (intervals.length > 1) {
+                const squaredDiffs = [];
+                for (let i = 1; i < intervals.length; i++) {
+                    squaredDiffs.push(Math.pow(intervals[i] - intervals[i - 1], 2));
+                }
+                rmssd = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length);
+            }
+
+            return {
+                ppiValues: ppiValues,
+                peaks: peaks,
+                meanPPI: meanPPI,
+                sdPPI: sdPPI,
+                rmssd: rmssd,
+                avgBPM: 60000 / meanPPI // 平均心拍数
+            };
+
+        } catch (error) {
+            console.error('PPI計算エラー:', error);
+            return null;
+        }
+    }
+        try {
+            if (signal.length < 20) return null;
+
+            // ピーク検出
+            const peaks = [];
+            const maxVal = Math.max(...signal.filter(x => isFinite(x)));
+            const minVal = Math.min(...signal.filter(x => isFinite(x)));
+            const threshold = minVal + (maxVal - minVal) * 0.6;
+
+            for (let i = 1; i < signal.length - 1; i++) {
+                if (signal[i] > threshold && 
+                    signal[i] > signal[i - 1] && 
+                    signal[i] > signal[i + 1]) {
+                    // 近接ピークを避ける
+                    if (peaks.length === 0 || i - peaks[peaks.length - 1] > sampleRate * 0.3) {
+                        peaks.push(i);
+                    }
+                }
+            }
+
+            if (peaks.length < 3) return null;
+
+            // ピーク間隔から心拍計算
+            const intervals = [];
+            for (let i = 1; i < peaks.length; i++) {
+                const interval = (peaks[i] - peaks[i - 1]) / sampleRate;
+                if (interval > 0.4 && interval < 2.0) { // 30-150 BPM
+                    intervals.push(interval);
+                }
+            }
+
+            if (intervals.length === 0) return null;
+
+            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+            const bpm = 60 / avgInterval;
+            
+            return { bpm: bpm, confidence: peaks.length };
+        } catch (error) {
+            console.error('ピーク検出エラー:', error);
+            return null;
+        }
+    }
+
+    // 自己相関による心拍推定
+    function autocorrelationHeartRate(signal, sampleRate) {
+        try {
+            if (signal.length < 50) return null;
+
+            const minLag = Math.floor(sampleRate * 0.4); // 150 BPM
+            const maxLag = Math.floor(sampleRate * 2.0); // 30 BPM
+
+            let maxCorr = 0;
+            let bestLag = 0;
+
+            for (let lag = minLag; lag < maxLag && lag < signal.length / 2; lag++) {
+                let correlation = 0;
+                let count = 0;
+                for (let i = 0; i < signal.length - lag; i++) {
+                    if (isFinite(signal[i]) && isFinite(signal[i + lag])) {
+                        correlation += signal[i] * signal[i + lag];
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    correlation /= count;
+                }
+                if (correlation > maxCorr) {
+                    maxCorr = correlation;
+                    bestLag = lag;
+                }
+            }
+
+            if (bestLag === 0 || maxCorr === 0) return null;
+
+            const bpm = 60 * sampleRate / bestLag;
+            
+            // BPMが妥当な範囲かチェック
+            if (bpm < 30 || bpm > 200) return null;
+            
+            return { bpm: bpm, confidence: maxCorr };
+        } catch (error) {
+            console.error('自己相関計算エラー:', error);
+            return null;
+        }
+    }
+
+    // 心拍解析
+    function analyzeHeartRate() {
+        try {
+            if (accelerometerData.length < 50) {
+                return;
+            }
+
+            // 前処理
+            const processedSignal = preprocessSignal(accelerometerData);
+            if (processedSignal.length < 20) return;
+
+            // 前処理済み信号を保存（停止後の表示用）
+            processedSignalData = processedSignal;
+
+            // タイムスタンプ配列を作成
+            const timestamps = accelerometerData.map(d => d.timestamp);
+
+            // サンプリングレート計算
+            const avgSampleRate = sampleRates.length > 0 
+                ? sampleRates.reduce((a, b) => a + b, 0) / sampleRates.length 
+                : 100;
+
+            if (!isFinite(avgSampleRate) || avgSampleRate < 10) {
+                console.log('サンプリングレートが不正:', avgSampleRate);
+                return;
+            }
+
+            // PPI計算
+            const ppiResult = calculatePPI(processedSignal, avgSampleRate, timestamps);
+            
+            if (ppiResult) {
+                // PPIデータを保存
+                ppiData = ppiResult.ppiValues;
+                
+                // PPI情報を表示
+                document.getElementById('heartRate').textContent = Math.round(ppiResult.avgBPM);
+                document.getElementById('meanPPI').textContent = Math.round(ppiResult.meanPPI) + ' ms';
+                document.getElementById('rmssd').textContent = Math.round(ppiResult.rmssd) + ' ms';
+                
+                // 信号品質の表示（ピーク数で判定）
+                const quality = ppiResult.peaks.length > 10 ? '良好' : 
+                               ppiResult.peaks.length > 5 ? '普通' : '低';
+                document.getElementById('signalQuality').textContent = quality;
+                
+                console.log('PPI計算結果:', {
+                    avgBPM: Math.round(ppiResult.avgBPM),
+                    meanPPI: Math.round(ppiResult.meanPPI),
+                    sdPPI: Math.round(ppiResult.sdPPI),
+                    rmssd: Math.round(ppiResult.rmssd),
+                    peakCount: ppiResult.peaks.length,
+                    ppiCount: ppiResult.ppiValues.length
+                });
+            }
+
+            const method = document.getElementById('detectionMethod').value;
+            let result = null;
+
+            // 選択された方法で心拍推定（バックアップ）
+            switch (method) {
+                case 'peak':
+                    result = peakDetectionHeartRate(processedSignal, avgSampleRate);
+                    break;
+                case 'autocorr':
+                    result = autocorrelationHeartRate(processedSignal, avgSampleRate);
+                    break;
+                case 'fft':
+                    result = fftHeartRate(processedSignal, avgSampleRate);
+                    break;
+                case 'hybrid':
+                    // PPIがある場合はそれを優先
+                    if (ppiResult) {
+                        result = { bpm: ppiResult.avgBPM, confidence: ppiResult.peaks.length };
+                    } else {
+                        // 複数の方法を組み合わせ
+                        const r1 = peakDetectionHeartRate(processedSignal, avgSampleRate);
+                        const r2 = autocorrelationHeartRate(processedSignal, avgSampleRate);
+                        const r3 = fftHeartRate(processedSignal, avgSampleRate);
+                        
+                        const results = [r1, r2, r3].filter(r => r !== null && isFinite(r.bpm));
+                        if (results.length > 0) {
+                            // 中央値を使用（外れ値に強い）
+                            const bpms = results.map(r => r.bpm).sort((a, b) => a - b);
+                            const medianBpm = bpms[Math.floor(bpms.length / 2)];
+                            const totalConf = results.reduce((sum, r) => sum + r.confidence, 0);
+                            result = { bpm: medianBpm, confidence: totalConf / results.length };
+                        }
+                    }
+                    break;
+            }
+
+            if (result && isFinite(result.bpm) && result.bpm >= 40 && result.bpm <= 180) {
+                // PPIがない場合のみ、従来の方法で表示
+                if (!ppiResult) {
+                    document.getElementById('heartRate').textContent = Math.round(result.bpm);
+                    
+                    // 信号品質の表示
+                    const quality = result.confidence > 100 ? '良好' : 
+                                   result.confidence > 50 ? '普通' : '低';
+                    document.getElementById('signalQuality').textContent = quality;
+                }
+            } else {
+                console.log('無効な心拍数:', result);
+            }
+
+            // 波形描画
+            drawWaveform(processedSignal);
+        } catch (error) {
+            console.error('心拍解析エラー:', error);
+        }
+    }
+
+    // 波形描画
+    function drawWaveform(signal) {
+        try {
+            if (!ctx || !canvas) {
+                console.warn('Canvas未初期化');
+                return;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (!signal || signal.length < 2) return;
+
+            const displayPoints = Math.min(signal.length, 300);
+            const step = signal.length / displayPoints;
+            
+            // 正規化
+            const validSignal = signal.filter(x => isFinite(x));
+            if (validSignal.length === 0) return;
+            
+            const maxAbs = Math.max(...validSignal.map(Math.abs));
+            if (maxAbs === 0 || !isFinite(maxAbs)) return;
+            
+            const normalized = signal.map(x => isFinite(x) ? x / maxAbs : 0);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            let firstPoint = true;
+            for (let i = 0; i < displayPoints; i++) {
+                const idx = Math.floor(i * step);
+                if (idx >= normalized.length) break;
+                
+                const x = (i / displayPoints) * canvas.width;
+                const y = canvas.height / 2 - (normalized[idx] * canvas.height * 0.4);
+                
+                if (!isFinite(x) || !isFinite(y)) continue;
+                
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+
+            ctx.stroke();
+
+            // 中央線
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        } catch (error) {
+            console.error('波形描画エラー:', error);
+        }
+    }
+
+    // UI更新
+    function updateUI() {
+        if (!isRecording) return;
+
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('duration').textContent = elapsed + '秒';
+        document.getElementById('dataPoints').textContent = accelerometerData.length;
+        
+        const avgSampleRate = sampleRates.length > 0 
+            ? Math.round(sampleRates.reduce((a, b) => a + b, 0) / sampleRates.length)
+            : 0;
+        document.getElementById('sampleRate').textContent = avgSampleRate + ' Hz';
+
+        // 計測タイマー更新
+        updateMeasurementTimer();
+
+        requestAnimationFrame(updateUI);
+    }
+
+    // データエクスポート
+    function exportData() {
+        if (accelerometerData.length === 0) {
+            alert('エクスポートするデータがありません');
+            return;
+        }
+
+        // 加速度データのCSV
+        let csvAccel = 'timestamp,x,y,z,magnitude\n';
+        accelerometerData.forEach(d => {
+            csvAccel += `${d.timestamp},${d.x},${d.y},${d.z},${d.magnitude}\n`;
+        });
+
+        // PPIデータのCSV
+        let csvPPI = 'timestamp,interval_ms,bpm\n';
+        ppiData.forEach(p => {
+            csvPPI += `${p.timestamp},${p.interval},${p.bpm}\n`;
+        });
+
+        // 2つのCSVファイルをZIP形式でダウンロード（簡易版：個別ダウンロード）
+        
+        // 加速度データをダウンロード
+        const blobAccel = new Blob([csvAccel], { type: 'text/csv' });
+        const urlAccel = URL.createObjectURL(blobAccel);
+        const aAccel = document.createElement('a');
+        aAccel.href = urlAccel;
+        aAccel.download = `acceleration_data_${Date.now()}.csv`;
+        aAccel.click();
+        URL.revokeObjectURL(urlAccel);
+
+        // PPIデータをダウンロード（データがあれば）
+        if (ppiData.length > 0) {
+            setTimeout(() => {
+                const blobPPI = new Blob([csvPPI], { type: 'text/csv' });
+                const urlPPI = URL.createObjectURL(blobPPI);
+                const aPPI = document.createElement('a');
+                aPPI.href = urlPPI;
+                aPPI.download = `ppi_data_${Date.now()}.csv`;
+                aPPI.click();
+                URL.revokeObjectURL(urlPPI);
+            }, 500);
+        }
+
+        console.log('エクスポート完了:', {
+            accelerationPoints: accelerometerData.length,
+            ppiPoints: ppiData.length
+        });
+    }
+
+    // ページ読み込み時の初期化
+    window.addEventListener('load', () => {
+        console.log('========================================');
+        console.log('ページ読み込み完了');
+        console.log('タイムスタンプ:', new Date().toISOString());
+        console.log('User Agent:', navigator.userAgent);
+        console.log('プロトコル:', window.location.protocol);
+        console.log('ホスト:', window.location.hostname);
+        console.log('========================================');
+        
+        // Canvas初期化
+        canvas = document.getElementById('waveform');
+        if (canvas) {
+            ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth * 2;
+            canvas.height = 300;
+            console.log('Canvas初期化成功');
+        } else {
+            console.error('Canvas要素が見つかりません');
+        }
+        
+        // ボタンが存在するか確認
+        const startBtn = document.getElementById('startBtn');
+        console.log('開始ボタン要素:', startBtn);
+        console.log('開始ボタン disabled:', startBtn ? startBtn.disabled : 'ボタンなし');
+        
+        // HTTPS チェック
+        const isSecure = window.location.protocol === 'https:' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' ||
+                       window.location.protocol === 'file:' ||
+                       window.location.hostname === '';
+        
+        console.log('セキュア接続判定:', isSecure);
+        
+        if (!isSecure) {
+            document.getElementById('status').textContent = '⚠️ HTTPS接続が必要です';
+            document.getElementById('status').style.background = 'rgba(255, 100, 100, 0.3)';
+            console.warn('HTTPS接続ではありません。iOSでは動作しません。');
+        }
+        
+        // センサーの可用性チェック
+        if (!window.DeviceMotionEvent) {
+            console.error('DeviceMotionEventが利用できません');
+            alert('このデバイスは加速度センサーに対応していません');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('status').textContent = 'センサー非対応';
+            return;
+        }
+        
+        console.log('DeviceMotionEvent利用可能');
+        console.log('DeviceMotionEvent.requestPermission:', typeof DeviceMotionEvent.requestPermission);
+        
+        // iOS 13+ のチェック
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        console.log('iOS環境:', isIOS);
+        
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            console.log('iOS 13+: requestPermission が必要です');
+            if (isSecure) {
+                document.getElementById('status').textContent = '準備完了（iOS: 開始時に許可が必要）';
+            } else {
+                document.getElementById('status').textContent = '⚠️ HTTPS接続が必要（iOS）';
+                document.getElementById('status').style.background = 'rgba(255, 100, 100, 0.3)';
+            }
+        } else {
+            console.log('Android/その他: requestPermission 不要');
+            document.getElementById('status').textContent = '準備完了';
+        }
+
+        // iOS環境の通知
+        if (isIOS) {
+            console.log('iOS環境を検出しました');
+            if (!isSecure) {
+                setTimeout(() => {
+                    alert('⚠️ 重要\n\niOSでは、HTTPS接続が必須です。\n\n現在の接続: ' + window.location.protocol + '\n\nHTTPS経由でアクセスしてください。');
+                }, 1000);
+            }
+        }
+        
+        console.log('========================================');
+        console.log('初期化完了');
+        console.log('========================================');
+    });
+</script>
+```
+
+</body>
+</html>
