@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心拍計測アプリ（加速度センサー）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .status.active {
+            background: rgba(76, 175, 80, 0.3);
+        }
+
+        .heart-rate-display {
+            text-align: center;
+            margin: 30px 0;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+        }
+
+        .heart-rate-value {
+            font-size: 72px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .heart-rate-label {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .start-btn:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .stop-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .stop-btn:hover:not(:disabled) {
+            background: #da190b;
+            transform: translateY(-2px);
+        }
+
+        .export-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            background: #0b7dda;
+            transform: translateY(-2px);
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            opacity: 0.8;
+        }
+
+        .info-value {
+            font-weight: bold;
+        }
+
+        canvas {
+            width: 100%;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .settings {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .settings h3 {
+            margin-bottom: 15px;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .setting-row:last-child {
+            margin-bottom: 0;
+        }
+
+        select, input[type="number"] {
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🫀 心拍計測アプリ</h1>
+        <p class="subtitle">加速度センサーを使用した非接触計測</p>
+
+        <div class="status" id="status">
+            センサー未起動
+        </div>
+
+        <div class="heart-rate-display">
+            <div class="heart-rate-value" id="heartRate">--</div>
+            <div class="heart-rate-label">BPM (拍/分)</div>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-row">
+                <span class="info-label">計測時間</span>
+                <span class="info-value" id="duration">0秒</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">サンプリングレート</span>
+                <span class="info-value" id="sampleRate">-- Hz</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">データポイント</span>
+                <span class="info-value" id="dataPoints">0</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">信号品質</span>
+                <span class="info-value" id="signalQuality">--</span>
+            </div>
+        </div>
+
+        <div class="settings">
+            <h3>設定</h3>
+            <div class="setting-row">
+                <label>検出方法:</label>
+                <select id="detectionMethod">
+                    <option value="peak">ピーク検出</option>
+                    <option value="autocorr">自己相関</option>
+                    <option value="fft">FFT（周波数解析）</option>
+                    <option value="hybrid" selected>ハイブリッド</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <label>フィルタ強度:</label>
+                <select id="filterStrength">
+                    <option value="low">弱</option>
+                    <option value="medium" selected>中</option>
+                    <option value="high">強</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <label>更新間隔:</label>
+                <select id="updateInterval">
+                    <option value="2000">2秒</option>
+                    <option value="3000" selected>3秒</option>
+                    <option value="5000">5秒</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="start-btn" id="startBtn" onclick="startMeasurement()">計測開始</button>
+            <button class="stop-btn" id="stopBtn" onclick="stopMeasurement()" disabled>停止</button>
+        </div>
+
+        <button class="export-btn" id="exportBtn" onclick="exportData()" disabled>データをエクスポート</button>
+
+        <canvas id="waveform"></canvas>
+
+        <div class="instructions">
+            <h3>📱 使用方法</h3>
+            <ol>
+                <li><strong>重要:</strong> HTTPSでアクセスしてください（iOSの場合必須）</li>
+                <li>仰向けに寝て、胸の中央にスマホを置く</li>
+                <li>スマホが心臓の動きで振動するように位置を調整</li>
+                <li>「計測開始」ボタンを押す</li>
+                <li><strong>iOSの場合:</strong> センサー使用許可のダイアログで「許可」をタップ</li>
+                <li>静かに呼吸し、動かないようにする</li>
+                <li>10〜20秒後に心拍数が表示される</li>
+            </ol>
+            <div style="margin-top: 15px; padding: 10px; background: rgba(255, 200, 0, 0.2); border-radius: 5px;">
+                <strong>⚠️ iOS使用時の注意:</strong><br>
+                • Safari または Chrome を使用してください<br>
+                • HTTPS接続が必要です（localhost以外）<br>
+                • センサー許可は必ず「許可」を選んでください<br>
+                • 拒否した場合は、Safariの設定→Webサイトの設定から変更できます
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let isRecording = false;
+        let accelerometerData = [];
+        let startTime = null;
+        let animationFrame = null;
+        let sensorInterval = null;
+        let analysisInterval = null;
+        let lastTimestamp = null;
+        let sampleRates = [];
+
+        // Canvas設定
+        const canvas = document.getElementById('waveform');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth * 2;
+        canvas.height = 300;
+
+        // 加速度センサーの初期化と計測開始
+        async function startMeasurement() {
+            console.log('計測開始ボタンがクリックされました');
+            console.log('現在のURL:', window.location.href);
+            console.log('プロトコル:', window.location.protocol);
+            
+            // HTTPSチェック（localhost以外）
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                alert('⚠️ HTTPS接続が必要です\n\niOSでセンサーを使用するには、HTTPS経由でアクセスする必要があります。\n\n対処法:\n1. GitHub Pages、Netlify、Vercelなどにデプロイ\n2. ローカルHTTPSサーバーを使用\n3. ngrokなどのトンネルサービスを使用');
+                console.error('HTTPS接続ではありません');
+                return;
+            }
+            
+            try {
+                // iOS 13+ の場合は許可が必要
+                if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                    console.log('iOS: センサー許可をリクエスト中...');
+                    document.getElementById('status').textContent = '許可ダイアログを確認してください...';
+                    
+                    try {
+                        const permission = await DeviceMotionEvent.requestPermission();
+                        console.log('許可結果:', permission);
+                        
+                        if (permission !== 'granted') {
+                            const message = 
+                                '❌ センサーの使用が拒否されました\n\n' +
+                                '対処法:\n' +
+                                '1. Safariの設定を開く\n' +
+                                '2. 下にスクロールして「プライバシーとセキュリティ」→「モーションとオリエンテーションのアクセス」を探す\n' +
+                                '3. このウェブサイトを「許可」に変更\n' +
+                                '4. ページを再読み込みして、もう一度お試しください\n\n' +
+                                'または、ブラウザでこのページを開き直してください。';
+                            
+                            alert(message);
+                            console.error('許可が拒否されました');
+                            document.getElementById('status').textContent = 'センサー使用が拒否されました';
+                            return;
+                        }
+                    } catch (permError) {
+                        console.error('許可リクエストエラー:', permError);
+                        alert('許可リクエストに失敗しました: ' + permError.message + '\n\nHTTPS接続を確認してください。');
+                        return;
+                    }
+                } else {
+                    console.log('Android/その他: 許可不要');
+                }
+
+                isRecording = true;
+                accelerometerData = [];
+                startTime = Date.now();
+                lastTimestamp = Date.now();
+                sampleRates = [];
+
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('exportBtn').disabled = true;
+                document.getElementById('status').textContent = '計測中... データ待機中';
+                document.getElementById('status').classList.add('active');
+
+                console.log('イベントリスナーを登録します');
+                // 加速度センサーのイベントリスナー
+                window.addEventListener('devicemotion', handleMotionEvent, true);
+
+                // センサーが動作しているか確認
+                setTimeout(() => {
+                    if (accelerometerData.length === 0) {
+                        console.warn('5秒経過してもデータが取得できていません');
+                        document.getElementById('status').textContent = '⚠️ センサーデータなし（スマホを軽く動かしてみてください）';
+                    } else {
+                        console.log('データ取得成功:', accelerometerData.length, '件');
+                        document.getElementById('status').textContent = '✓ 計測中（データ取得OK）';
+                    }
+                }, 5000);
+
+                // 定期的な心拍解析
+                const updateInterval = parseInt(document.getElementById('updateInterval').value);
+                analysisInterval = setInterval(analyzeHeartRate, updateInterval);
+
+                // UI更新
+                requestAnimationFrame(updateUI);
+
+                console.log('計測開始完了');
+
+            } catch (error) {
+                console.error('センサー起動エラー:', error);
+                alert('センサーの起動に失敗しました:\n' + error.message + '\n\n詳細はコンソールを確認してください。');
+                isRecording = false;
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('status').textContent = 'エラー: ' + error.message;
+            }
+        }
+
+        // 加速度データの処理
+        function handleMotionEvent(event) {
+            if (!isRecording) return;
+
+            const acc = event.accelerationIncludingGravity;
+            
+            // 初回のみログ出力
+            if (accelerometerData.length === 0) {
+                console.log('初回センサーデータ受信:', acc);
+            }
+            
+            if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
+                const timestamp = Date.now();
+                
+                // サンプリングレート計算
+                if (lastTimestamp) {
+                    const rate = 1000 / (timestamp - lastTimestamp);
+                    sampleRates.push(rate);
+                    if (sampleRates.length > 50) sampleRates.shift();
+                }
+                lastTimestamp = timestamp;
+
+                // 3軸の合成加速度（ノルム）
+                const magnitude = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+                
+                accelerometerData.push({
+                    timestamp: timestamp,
+                    x: acc.x,
+                    y: acc.y,
+                    z: acc.z,
+                    magnitude: magnitude
+                });
+
+                // 100件ごとにログ
+                if (accelerometerData.length % 100 === 0) {
+                    console.log('データ件数:', accelerometerData.length, '平均サンプリングレート:', 
+                        Math.round(sampleRates.reduce((a,b) => a+b, 0) / sampleRates.length), 'Hz');
+                }
+
+                // メモリ管理：30秒以上古いデータは削除
+                const cutoffTime = timestamp - 30000;
+                accelerometerData = accelerometerData.filter(d => d.timestamp > cutoffTime);
+            } else {
+                // データがnullの場合
+                if (accelerometerData.length < 5) {
+                    console.warn('センサーデータがnullです:', acc);
+                }
+            }
+        }
+
+        // 計測停止
+        function stopMeasurement() {
+            console.log('計測停止');
+            isRecording = false;
+            window.removeEventListener('devicemotion', handleMotionEvent, true);
+            
+            if (analysisInterval) {
+                clearInterval(analysisInterval);
+                analysisInterval = null;
+            }
+
+            console.log('最終データ件数:', accelerometerData.length);
+
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('status').textContent = '計測停止（データ: ' + accelerometerData.length + '件）';
+            document.getElementById('status').classList.remove('active');
+        }
+
+        // 前処理：DC除去と帯域フィルタ
+        function preprocessSignal(data) {
+            try {
+                if (data.length < 10) return [];
+
+                // 加速度のノルムを使用
+                let signal = data.map(d => d.magnitude).filter(x => isFinite(x));
+                
+                if (signal.length < 10) return [];
+
+                // DC成分除去（平均を引く）
+                const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+                signal = signal.map(x => x - mean);
+
+                // 簡易的なバンドパスフィルタ（0.7Hz - 4Hz：心拍の周波数帯域）
+                const filterStrength = document.getElementById('filterStrength').value;
+                const windowSize = filterStrength === 'low' ? 3 : filterStrength === 'high' ? 7 : 5;
+                
+                // 移動平均による高周波ノイズ除去
+                let filtered = [];
+                for (let i = 0; i < signal.length; i++) {
+                    let sum = 0;
+                    let count = 0;
+                    const halfWindow = Math.floor(windowSize / 2);
+                    for (let j = Math.max(0, i - halfWindow); j <= Math.min(signal.length - 1, i + halfWindow); j++) {
+                        if (isFinite(signal[j])) {
+                            sum += signal[j];
+                            count++;
+                        }
+                    }
+                    if (count > 0) {
+                        filtered.push(sum / count);
+                    }
+                }
+
+                return filtered.filter(x => isFinite(x));
+            } catch (error) {
+                console.error('前処理エラー:', error);
+                return [];
+            }
+        }
+
+        // FFTを使った周波数解析
+        function fftHeartRate(signal, sampleRate) {
+            try {
+                if (signal.length < 64) return null;
+
+                // FFT（簡易版 - DFT実装）
+                const N = Math.min(256, Math.pow(2, Math.floor(Math.log2(signal.length))));
+                const fft = new Array(N).fill(0);
+                
+                // 計算負荷を減らすため、一部の周波数のみ計算
+                const minFreq = 0.7;
+                const maxFreq = 4.0;
+                const minBin = Math.floor(minFreq * N / sampleRate);
+                const maxBin = Math.ceil(maxFreq * N / sampleRate);
+
+                for (let k = minBin; k < maxBin && k < N; k++) {
+                    let real = 0, imag = 0;
+                    for (let n = 0; n < N && n < signal.length; n++) {
+                        const angle = -2 * Math.PI * k * n / N;
+                        real += signal[n] * Math.cos(angle);
+                        imag += signal[n] * Math.sin(angle);
+                    }
+                    fft[k] = Math.sqrt(real * real + imag * imag);
+                }
+
+                // 最大パワーの周波数を検出
+                let maxPower = 0;
+                let maxFreqBin = 0;
+                for (let i = minBin; i < maxBin && i < fft.length; i++) {
+                    if (fft[i] > maxPower) {
+                        maxPower = fft[i];
+                        maxFreqBin = i;
+                    }
+                }
+
+                if (maxFreqBin === 0 || maxPower === 0) return null;
+
+                const heartRateHz = maxFreqBin * sampleRate / N;
+                const heartRateBPM = heartRateHz * 60;
+
+                return { bpm: heartRateBPM, confidence: maxPower };
+            } catch (error) {
+                console.error('FFT計算エラー:', error);
+                return null;
+            }
+        }
+
+        // ピーク検出による心拍推定
+        function peakDetectionHeartRate(signal, sampleRate) {
+            try {
+                if (signal.length < 20) return null;
+
+                // ピーク検出
+                const peaks = [];
+                const maxVal = Math.max(...signal.filter(x => isFinite(x)));
+                const minVal = Math.min(...signal.filter(x => isFinite(x)));
+                const threshold = minVal + (maxVal - minVal) * 0.6;
+
+                for (let i = 1; i < signal.length - 1; i++) {
+                    if (signal[i] > threshold && 
+                        signal[i] > signal[i - 1] && 
+                        signal[i] > signal[i + 1]) {
+                        // 近接ピークを避ける
+                        if (peaks.length === 0 || i - peaks[peaks.length - 1] > sampleRate * 0.3) {
+                            peaks.push(i);
+                        }
+                    }
+                }
+
+                if (peaks.length < 3) return null;
+
+                // ピーク間隔から心拍計算
+                const intervals = [];
+                for (let i = 1; i < peaks.length; i++) {
+                    const interval = (peaks[i] - peaks[i - 1]) / sampleRate;
+                    if (interval > 0.4 && interval < 2.0) { // 30-150 BPM
+                        intervals.push(interval);
+                    }
+                }
+
+                if (intervals.length === 0) return null;
+
+                const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                const bpm = 60 / avgInterval;
+                
+                return { bpm: bpm, confidence: peaks.length };
+            } catch (error) {
+                console.error('ピーク検出エラー:', error);
+                return null;
+            }
+        }
+
+        // 自己相関による心拍推定
+        function autocorrelationHeartRate(signal, sampleRate) {
+            try {
+                if (signal.length < 50) return null;
+
+                const minLag = Math.floor(sampleRate * 0.4); // 150 BPM
+                const maxLag = Math.floor(sampleRate * 2.0); // 30 BPM
+
+                let maxCorr = 0;
+                let bestLag = 0;
+
+                for (let lag = minLag; lag < maxLag && lag < signal.length / 2; lag++) {
+                    let correlation = 0;
+                    let count = 0;
+                    for (let i = 0; i < signal.length - lag; i++) {
+                        if (isFinite(signal[i]) && isFinite(signal[i + lag])) {
+                            correlation += signal[i] * signal[i + lag];
+                            count++;
+                        }
+                    }
+                    if (count > 0) {
+                        correlation /= count;
+                    }
+                    if (correlation > maxCorr) {
+                        maxCorr = correlation;
+                        bestLag = lag;
+                    }
+                }
+
+                if (bestLag === 0 || maxCorr === 0) return null;
+
+                const bpm = 60 * sampleRate / bestLag;
+                
+                // BPMが妥当な範囲かチェック
+                if (bpm < 30 || bpm > 200) return null;
+                
+                return { bpm: bpm, confidence: maxCorr };
+            } catch (error) {
+                console.error('自己相関計算エラー:', error);
+                return null;
+            }
+        }
+
+        // 心拍解析
+        function analyzeHeartRate() {
+            try {
+                if (accelerometerData.length < 50) {
+                    return;
+                }
+
+                // 前処理
+                const processedSignal = preprocessSignal(accelerometerData);
+                if (processedSignal.length < 20) return;
+
+                // サンプリングレート計算
+                const avgSampleRate = sampleRates.length > 0 
+                    ? sampleRates.reduce((a, b) => a + b, 0) / sampleRates.length 
+                    : 50;
+
+                if (!isFinite(avgSampleRate) || avgSampleRate < 10) {
+                    console.log('サンプリングレートが不正:', avgSampleRate);
+                    return;
+                }
+
+                const method = document.getElementById('detectionMethod').value;
+                let result = null;
+
+                // 選択された方法で心拍推定
+                switch (method) {
+                    case 'peak':
+                        result = peakDetectionHeartRate(processedSignal, avgSampleRate);
+                        break;
+                    case 'autocorr':
+                        result = autocorrelationHeartRate(processedSignal, avgSampleRate);
+                        break;
+                    case 'fft':
+                        result = fftHeartRate(processedSignal, avgSampleRate);
+                        break;
+                    case 'hybrid':
+                        // 複数の方法を組み合わせ
+                        const r1 = peakDetectionHeartRate(processedSignal, avgSampleRate);
+                        const r2 = autocorrelationHeartRate(processedSignal, avgSampleRate);
+                        const r3 = fftHeartRate(processedSignal, avgSampleRate);
+                        
+                        const results = [r1, r2, r3].filter(r => r !== null && isFinite(r.bpm));
+                        if (results.length > 0) {
+                            // 中央値を使用（外れ値に強い）
+                            const bpms = results.map(r => r.bpm).sort((a, b) => a - b);
+                            const medianBpm = bpms[Math.floor(bpms.length / 2)];
+                            const totalConf = results.reduce((sum, r) => sum + r.confidence, 0);
+                            result = { bpm: medianBpm, confidence: totalConf / results.length };
+                        }
+                        break;
+                }
+
+                if (result && isFinite(result.bpm) && result.bpm >= 40 && result.bpm <= 180) {
+                    document.getElementById('heartRate').textContent = Math.round(result.bpm);
+                    
+                    // 信号品質の表示
+                    const quality = result.confidence > 100 ? '良好' : 
+                                   result.confidence > 50 ? '普通' : '低';
+                    document.getElementById('signalQuality').textContent = quality;
+                } else {
+                    console.log('無効な心拍数:', result);
+                }
+
+                // 波形描画
+                drawWaveform(processedSignal);
+            } catch (error) {
+                console.error('心拍解析エラー:', error);
+            }
+        }
+
+        // 波形描画
+        function drawWaveform(signal) {
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if (!signal || signal.length < 2) return;
+
+                const displayPoints = Math.min(signal.length, 300);
+                const step = signal.length / displayPoints;
+                
+                // 正規化
+                const validSignal = signal.filter(x => isFinite(x));
+                if (validSignal.length === 0) return;
+                
+                const maxAbs = Math.max(...validSignal.map(Math.abs));
+                if (maxAbs === 0 || !isFinite(maxAbs)) return;
+                
+                const normalized = signal.map(x => isFinite(x) ? x / maxAbs : 0);
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                let firstPoint = true;
+                for (let i = 0; i < displayPoints; i++) {
+                    const idx = Math.floor(i * step);
+                    if (idx >= normalized.length) break;
+                    
+                    const x = (i / displayPoints) * canvas.width;
+                    const y = canvas.height / 2 - (normalized[idx] * canvas.height * 0.4);
+                    
+                    if (!isFinite(x) || !isFinite(y)) continue;
+                    
+                    if (firstPoint) {
+                        ctx.moveTo(x, y);
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+
+                ctx.stroke();
+
+                // 中央線
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height / 2);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+            } catch (error) {
+                console.error('波形描画エラー:', error);
+            }
+        }
+
+        // UI更新
+        function updateUI() {
+            if (!isRecording) return;
+
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('duration').textContent = elapsed + '秒';
+            document.getElementById('dataPoints').textContent = accelerometerData.length;
+            
+            const avgSampleRate = sampleRates.length > 0 
+                ? Math.round(sampleRates.reduce((a, b) => a + b, 0) / sampleRates.length)
+                : 0;
+            document.getElementById('sampleRate').textContent = avgSampleRate + ' Hz';
+
+            requestAnimationFrame(updateUI);
+        }
+
+        // データエクスポート
+        function exportData() {
+            if (accelerometerData.length === 0) {
+                alert('エクスポートするデータがありません');
+                return;
+            }
+
+            // CSV形式でエクスポート
+            let csv = 'timestamp,x,y,z,magnitude\n';
+            accelerometerData.forEach(d => {
+                csv += `${d.timestamp},${d.x},${d.y},${d.z},${d.magnitude}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `heartrate_data_${Date.now()}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ページ読み込み時の初期化
+        window.addEventListener('load', () => {
+            console.log('ページ読み込み完了');
+            console.log('User Agent:', navigator.userAgent);
+            console.log('プロトコル:', window.location.protocol);
+            console.log('ホスト:', window.location.hostname);
+            
+            // HTTPS チェック
+            const isSecure = window.location.protocol === 'https:' || 
+                           window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
+            
+            if (!isSecure) {
+                document.getElementById('status').textContent = '⚠️ HTTPS接続が必要です';
+                document.getElementById('status').style.background = 'rgba(255, 100, 100, 0.3)';
+                console.warn('HTTPS接続ではありません。iOSでは動作しません。');
+            }
+            
+            // センサーの可用性チェック
+            if (!window.DeviceMotionEvent) {
+                console.error('DeviceMotionEventが利用できません');
+                alert('このデバイスは加速度センサーに対応していません');
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('status').textContent = 'センサー非対応';
+                return;
+            }
+            
+            console.log('DeviceMotionEvent利用可能');
+            
+            // iOS 13+ のチェック
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                console.log('iOS 13+: requestPermission が必要です');
+                if (isSecure) {
+                    document.getElementById('status').textContent = '準備完了（iOS: 開始時に許可が必要）';
+                } else {
+                    document.getElementById('status').textContent = '⚠️ HTTPS接続が必要（iOS）';
+                    document.getElementById('status').style.background = 'rgba(255, 100, 100, 0.3)';
+                }
+            } else {
+                console.log('Android/その他: requestPermission 不要');
+                document.getElementById('status').textContent = '準備完了';
+            }
+
+            // iOS環境の通知
+            if (isIOS) {
+                console.log('iOS環境を検出しました');
+                if (!isSecure) {
+                    setTimeout(() => {
+                        alert('⚠️ 重要\n\niOSでは、HTTPS接続が必須です。\n\n現在の接続: ' + window.location.protocol + '\n\nHTTPS経由でアクセスしてください。');
+                    }, 1000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
