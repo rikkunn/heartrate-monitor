@@ -419,6 +419,10 @@
     <div class="status" id="status">
         センサー未起動
     </div>
+    
+    <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; margin-bottom: 20px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;" id="debugLog">
+        <div style="color: #4CAF50; font-weight: bold;">デバッグログ:</div>
+    </div>
 
     <div class="measurement-timer" id="measurementTimer" style="display: none;">
         <div class="timer-display">
@@ -599,6 +603,17 @@
 </div>
 
 <script>
+    // デバッグログを画面に表示
+    function addDebugLog(message) {
+        console.log(message);
+        var logDiv = document.getElementById('debugLog');
+        if (logDiv) {
+            var time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += '<div style="color: #fff; margin: 3px 0;">' + time + ' - ' + message + '</div>';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+    }
+    
     // グローバル変数
     let isRecording = false;
     let accelerometerData = [];
@@ -621,13 +636,9 @@
 
     // 加速度センサーの初期化と計測開始
     async function startMeasurement() {
-        console.log('========================================');
-        console.log('計測開始ボタンがクリックされました');
-        console.log('タイムスタンプ:', new Date().toISOString());
-        console.log('現在のURL:', window.location.href);
-        console.log('プロトコル:', window.location.protocol);
-        console.log('ホスト名:', window.location.hostname);
-        console.log('========================================');
+        addDebugLog('========================================');
+        addDebugLog('📱 startMeasurement関数が呼ばれました');
+        addDebugLog('========================================');
         
         // 即座に視覚的フィードバック
         document.getElementById('status').textContent = '処理中...';
@@ -1872,13 +1883,11 @@
 
     // ページ読み込み時の初期化
     window.addEventListener('load', () => {
-        console.log('========================================');
-        console.log('ページ読み込み完了');
-        console.log('タイムスタンプ:', new Date().toISOString());
-        console.log('User Agent:', navigator.userAgent);
-        console.log('プロトコル:', window.location.protocol);
-        console.log('ホスト:', window.location.hostname);
-        console.log('========================================');
+        addDebugLog('========================================');
+        addDebugLog('ページ読み込み完了');
+        addDebugLog('User Agent: ' + navigator.userAgent.substring(0, 50));
+        addDebugLog('プロトコル: ' + window.location.protocol);
+        addDebugLog('========================================');
         
         // Canvas初期化
         canvas = document.getElementById('waveform');
@@ -1886,9 +1895,9 @@
             ctx = canvas.getContext('2d');
             canvas.width = canvas.offsetWidth * 2;
             canvas.height = 300;
-            console.log('Canvas初期化成功');
+            addDebugLog('✓ Canvas初期化成功');
         } else {
-            console.error('Canvas要素が見つかりません');
+            addDebugLog('✗ Canvas要素が見つかりません');
         }
         
         // ボタンが存在するか確認
@@ -1952,40 +1961,46 @@
             }
         }
         
-        console.log('========================================');
-        console.log('初期化完了');
-        console.log('========================================');
+        addDebugLog('========================================');
+        addDebugLog('初期化完了');
+        addDebugLog('========================================');
         
         // ボタンにイベントリスナーを設定
         var startBtn = document.getElementById('startBtn');
         var stopBtn = document.getElementById('stopBtn');
         var exportBtn = document.getElementById('exportBtn');
         
+        addDebugLog('開始ボタン: ' + (startBtn ? '発見' : '未発見'));
+        addDebugLog('停止ボタン: ' + (stopBtn ? '発見' : '未発見'));
+        addDebugLog('エクスポートボタン: ' + (exportBtn ? '発見' : '未発見'));
+        
         if (startBtn) {
             startBtn.addEventListener('click', function() {
-                console.log('計測開始ボタンクリック検知');
+                addDebugLog('🔵 計測開始ボタンがクリックされました！');
                 startMeasurement();
             });
-            console.log('✓ 計測開始ボタンにイベント設定完了');
+            addDebugLog('✓ 計測開始ボタンにイベント設定完了');
         } else {
-            console.error('✗ 計測開始ボタンが見つかりません');
+            addDebugLog('✗ 計測開始ボタンが見つかりません');
         }
         
         if (stopBtn) {
             stopBtn.addEventListener('click', function() {
-                console.log('停止ボタンクリック検知');
+                addDebugLog('🔴 停止ボタンがクリックされました！');
                 stopMeasurement();
             });
-            console.log('✓ 停止ボタンにイベント設定完了');
+            addDebugLog('✓ 停止ボタンにイベント設定完了');
         }
         
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
-                console.log('エクスポートボタンクリック検知');
+                addDebugLog('📁 エクスポートボタンがクリックされました！');
                 exportData();
             });
-            console.log('✓ エクスポートボタンにイベント設定完了');
+            addDebugLog('✓ エクスポートボタンにイベント設定完了');
         }
+        
+        addDebugLog('🎉 すべての準備が完了しました');
     });
 </script>
 ```
