@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テスト版</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            margin: 10px 0;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .test-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        .log-btn {
+            background: #2196F3;
+            color: white;
+        }
+        #status {
+            padding: 20px;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>動作テスト</h1>
+
+```
+<button class="test-btn" id="testBtn">テストボタン</button>
+<button class="log-btn" id="logBtn">ログ表示</button>
+
+<div id="status">準備中...</div>
+
+<script>
+    // ログ保存
+    var logs = [];
+    
+    function addLog(msg) {
+        var time = new Date().toLocaleTimeString();
+        var logMsg = time + ': ' + msg;
+        logs.push(logMsg);
+        console.log(logMsg);
+        
+        // 画面にも表示
+        var statusDiv = document.getElementById('status');
+        if (statusDiv) {
+            statusDiv.innerHTML += '<br>' + logMsg;
+        }
+    }
+    
+    function showLogs() {
+        alert('ログ:\n\n' + logs.join('\n'));
+    }
+    
+    // ページ読み込み時
+    window.addEventListener('load', function() {
+        addLog('ページ読み込み完了');
+        
+        var testBtn = document.getElementById('testBtn');
+        var logBtn = document.getElementById('logBtn');
+        
+        addLog('テストボタン: ' + (testBtn ? '見つかった' : '見つからない'));
+        addLog('ログボタン: ' + (logBtn ? '見つかった' : '見つからない'));
+        
+        if (testBtn) {
+            testBtn.addEventListener('click', function() {
+                addLog('テストボタンがクリックされました！');
+                alert('ボタン動作OK！');
+            });
+            addLog('テストボタンにイベント設定完了');
+        }
+        
+        if (logBtn) {
+            logBtn.addEventListener('click', function() {
+                addLog('ログボタンがクリックされました');
+                showLogs();
+            });
+            addLog('ログボタンにイベント設定完了');
+        }
+        
+        addLog('初期化完了');
+    });
+</script>
+```
+
+</body>
+</html>
