@@ -495,13 +495,13 @@
     </div>
 
     <div class="controls">
-        <button class="start-btn" id="startBtn" onclick="startMeasurement()">計測開始</button>
-        <button class="stop-btn" id="stopBtn" onclick="stopMeasurement()" disabled>停止</button>
+        <button class="start-btn" id="startBtn">計測開始</button>
+        <button class="stop-btn" id="stopBtn" disabled>停止</button>
     </div>
 
-    <button class="export-btn" id="exportBtn" onclick="exportData()" disabled>データをエクスポート</button>
+    <button class="export-btn" id="exportBtn" disabled>データをエクスポート</button>
 
-    <button class="export-btn" onclick="showDebugLogs()" style="margin-top: 10px; background: #9C27B0;">デバッグログ表示</button>
+    <button class="export-btn" id="debugBtn" style="margin-top: 10px; background: #9C27B0;">デバッグログ表示</button>
 
     <canvas id="waveform"></canvas>
 
@@ -1885,13 +1885,11 @@
 
     // ページ読み込み時の初期化
     window.addEventListener('load', () => {
-        console.log('========================================');
-        console.log('ページ読み込み完了');
-        console.log('タイムスタンプ:', new Date().toISOString());
-        console.log('User Agent:', navigator.userAgent);
-        console.log('プロトコル:', window.location.protocol);
-        console.log('ホスト:', window.location.hostname);
-        console.log('========================================');
+        debugLog('========================================');
+        debugLog('ページ読み込み完了');
+        debugLog('User Agent: ' + navigator.userAgent);
+        debugLog('プロトコル: ' + window.location.protocol);
+        debugLog('========================================');
         
         // Canvas初期化
         canvas = document.getElementById('waveform');
@@ -1899,16 +1897,104 @@
             ctx = canvas.getContext('2d');
             canvas.width = canvas.offsetWidth * 2;
             canvas.height = 300;
-            console.log('Canvas初期化成功');
+            debugLog('Canvas初期化成功');
         } else {
-            console.error('Canvas要素が見つかりません');
+            debugLog('エラー: Canvas要素が見つかりません');
+        }
+        
+        // ボタンにイベントリスナーを設定
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const debugBtn = document.getElementById('debugBtn');
+        
+        debugLog('開始ボタン要素: ' + (startBtn ? '存在' : 'なし'));
+        debugLog('停止ボタン要素: ' + (stopBtn ? '存在' : 'なし'));
+        debugLog('エクスポートボタン要素: ' + (exportBtn ? '存在' : 'なし'));
+        debugLog('デバッグボタン要素: ' + (debugBtn ? '存在' : 'なし'));
+        
+        if (startBtn) {
+            startBtn.addEventListener('click', function() {
+                debugLog('開始ボタンがクリックされました');
+                startMeasurement();
+            });
+            debugLog('開始ボタンにイベントリスナー設定完了');
+        } else {
+            debugLog('エラー: 開始ボタンが見つかりません');
+        }
+        
+        if (stopBtn) {
+            stopBtn.addEventListener('click', function() {
+                debugLog('停止ボタンがクリックされました');
+                stopMeasurement();
+            });
+            debugLog('停止ボタンにイベントリスナー設定完了');
+        }
+        
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                debugLog('エクスポートボタンがクリックされました');
+                exportData();
+            });
+            debugLog('エクスポートボタンにイベントリスナー設定完了');
+        }
+        
+        if (debugBtn) {
+            debugBtn.addEventListener('click', function() {
+                showDebugLogs();
+            });
+            debugLog('デバッグボタンにイベントリスナー設定完了');
+        } else {
+            debugLog('エラー: デバッグボタンが見つかりません');
         }
         
         // ボタンが存在するか確認
-        const startBtn = document.getElementById('startBtn');
-        console.log('開始ボタン要素:', startBtn);
-        console.log('開始ボタン disabled:', startBtn ? startBtn.disabled : 'ボタンなし');
         
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const debugBtn = document.getElementById('debugBtn');
+        
+        debugLog('開始ボタン要素: ' + (startBtn ? '存在' : 'なし'));
+        debugLog('停止ボタン要素: ' + (stopBtn ? '存在' : 'なし'));
+        debugLog('エクスポートボタン要素: ' + (exportBtn ? '存在' : 'なし'));
+        debugLog('デバッグボタン要素: ' + (debugBtn ? '存在' : 'なし'));
+        
+        if (startBtn) {
+            startBtn.addEventListener('click', function() {
+                debugLog('開始ボタンがクリックされました');
+                startMeasurement();
+            });
+            debugLog('開始ボタンにイベントリスナー設定完了');
+        } else {
+            debugLog('エラー: 開始ボタンが見つかりません');
+        }
+        
+        if (stopBtn) {
+            stopBtn.addEventListener('click', function() {
+                debugLog('停止ボタンがクリックされました');
+                stopMeasurement();
+            });
+            debugLog('停止ボタンにイベントリスナー設定完了');
+        }
+        
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                debugLog('エクスポートボタンがクリックされました');
+                exportData();
+            });
+            debugLog('エクスポートボタンにイベントリスナー設定完了');
+        }
+        
+        if (debugBtn) {
+            debugBtn.addEventListener('click', function() {
+                showDebugLogs();
+            });
+            debugLog('デバッグボタンにイベントリスナー設定完了');
+        } else {
+            debugLog('エラー: デバッグボタンが見つかりません');
+        }
+
         // HTTPS チェック
         const isSecure = window.location.protocol === 'https:' || 
                        window.location.hostname === 'localhost' || 
@@ -1916,34 +2002,34 @@
                        window.location.protocol === 'file:' ||
                        window.location.hostname === '';
         
-        console.log('セキュア接続判定:', isSecure);
+        debugLog('セキュア接続判定: ' + isSecure);
         
         if (!isSecure) {
             document.getElementById('status').textContent = '⚠️ HTTPS接続が必要です';
             document.getElementById('status').style.background = 'rgba(255, 100, 100, 0.3)';
-            console.warn('HTTPS接続ではありません。iOSでは動作しません。');
+            debugLog('警告: HTTPS接続ではありません');
         }
         
         // センサーの可用性チェック
         if (!window.DeviceMotionEvent) {
-            console.error('DeviceMotionEventが利用できません');
+            debugLog('エラー: DeviceMotionEventが利用できません');
             alert('このデバイスは加速度センサーに対応していません');
             document.getElementById('startBtn').disabled = true;
             document.getElementById('status').textContent = 'センサー非対応';
             return;
         }
         
-        console.log('DeviceMotionEvent利用可能');
-        console.log('DeviceMotionEvent.requestPermission:', typeof DeviceMotionEvent.requestPermission);
+        debugLog('DeviceMotionEvent利用可能');
+        debugLog('requestPermission: ' + (typeof DeviceMotionEvent.requestPermission));
         
         // iOS 13+ のチェック
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         
-        console.log('iOS環境:', isIOS);
+        debugLog('iOS環境: ' + isIOS);
         
         if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            console.log('iOS 13+: requestPermission が必要です');
+            debugLog('iOS 13+検出: requestPermission が必要');
             if (isSecure) {
                 document.getElementById('status').textContent = '準備完了（iOS: 開始時に許可が必要）';
             } else {
@@ -1951,23 +2037,21 @@
                 document.getElementById('status').style.background = 'rgba(255, 100, 100, 0.3)';
             }
         } else {
-            console.log('Android/その他: requestPermission 不要');
+            debugLog('Android/その他: requestPermission 不要');
             document.getElementById('status').textContent = '準備完了';
         }
 
         // iOS環境の通知
-        if (isIOS) {
-            console.log('iOS環境を検出しました');
-            if (!isSecure) {
-                setTimeout(() => {
-                    alert('⚠️ 重要\n\niOSでは、HTTPS接続が必須です。\n\n現在の接続: ' + window.location.protocol + '\n\nHTTPS経由でアクセスしてください。');
-                }, 1000);
-            }
+        if (isIOS && !isSecure) {
+            debugLog('iOS環境でHTTPS未使用 - アラート表示');
+            setTimeout(() => {
+                alert('⚠️ 重要\n\niOSでは、HTTPS接続が必須です。\n\n現在の接続: ' + window.location.protocol + '\n\nHTTPS経由でアクセスしてください。');
+            }, 1000);
         }
         
-        console.log('========================================');
-        console.log('初期化完了');
-        console.log('========================================');
+        debugLog('========================================');
+        debugLog('初期化完了');
+        debugLog('========================================');
     });
 </script>
 ```
